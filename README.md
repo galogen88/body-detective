@@ -1,64 +1,107 @@
-# Human Atlas
+# Боди Детектив
 
-An interactive 3D anatomy explorer built with React, Three.js, and shadcn/ui. Take the BodyParts3D adult male reference apart into **2,234 individually selectable meshes**, explore **15 anatomical systems**, and search **3,432 named concepts**.
+Учебная игра про устройство тела на основе 3D-атласа [ashemag/human-atlas](https://github.com/ashemag/human-atlas) (React + Three.js + Vite + TypeScript). Текущая цель — демо v0.1 «Зажимы»: кровеносная система, наведение на сосуды и мини-игра «поставь зажим с правильной стороны от пробоины».
 
-**[Explore the live demo](https://human-atlas-seven.vercel.app)**
+- План демо: [docs/plan-demo-v0.1.md](docs/plan-demo-v0.1.md)
+- Игровая концепция: [docs/game-design.md](docs/game-design.md)
+- Заметки для Claude Code: [CLAUDE.md](CLAUDE.md)
 
-## Explore
+Это учебная игра, не медицинская инструкция.
 
-- Orbit, zoom, and select structures directly on the body.
-- Toggle individual systems or use skeleton and organ presets.
-- Move from assembled anatomy to a spaced inventory of every visible piece.
-- Search anatomical names and source identifiers.
-- Isolate a selected structure and read its details.
-- Use compact controls and detail panels on mobile.
+## Ветки и удалённые репозитории
 
-## Run locally
+| Что | Где |
+| --- | --- |
+| `origin` | https://github.com/galogen88/body-detective — наш форк |
+| `upstream` | https://github.com/ashemag/human-atlas — оригинальный атлас |
+| `main` | повторяет `upstream/main`, своих правок сюда не кладём |
+| `game` | вся работа над игрой |
 
-Requires Node.js 22.13 or newer. No API keys or accounts are needed.
+Подтянуть свежий атлас:
+
+```sh
+git fetch upstream
+git checkout main && git merge --ff-only upstream/main && git push origin main
+git checkout game && git merge main
+```
+
+## Запуск локально
+
+Нужен Node.js 22.13 или новее. Ключи и аккаунты не нужны.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open http://localhost:3016. To build the static site, run `npm run build`; the output is in `dist/`.
+Открыть http://localhost:3016. Остановить — `Ctrl+C`.
 
-## Validate
+## Проверки перед коммитом и деплоем
 
 ```sh
-npm run check
-node scripts/validate-atlas.mjs
+npm run check                       # TypeScript
+node scripts/validate-atlas.mjs     # меши, имена, бинарные буферы
 node scripts/validate-interactions.mjs
-npm run build
+npm run build                       # статическая сборка в dist/
 ```
 
-Validation covers mesh buffers, names and concept membership, nonoverlapping exploded layouts at desktop and mobile aspect ratios, search and inspection contracts, and tap-versus-drag handling. Browser interaction checks have exercised selection, system controls, search, isolation, rotation, and 390×844, 320×568, and 844×390 layouts. Phone controls stay clear of the exploded inventory, and isolated structures fit the space above or beside the detail panel. Physical-device performance and real multitouch hardware have not been tested.
+Собранную версию можно посмотреть локально: `npx vite preview`, затем открыть http://localhost:4173. Сайт статический, без сервера и переменных окружения. Сборка весит около 110 МБ, из них около 33 МБ — сжатая геометрия.
 
-## Anatomy data
+## Деплой на Vercel
 
-The current viewer uses **BodyParts3D 4.0**, an adult male reference anatomy, licensed **CC BY 4.0**. It does not represent every human structure or variation. Individual source meshes are distinct from named concepts, which may group multiple meshes. Descriptions distinguish general system context from individual organ explanations.
+В репозитории уже есть `vercel.json`: установка `npm ci`, сборка `npm run build`, результат в `dist`, фреймворк Vite. Вручную эти настройки задавать не нужно.
 
-Geometry is simplified for browser performance while retaining every source mesh. The packaged model contains 2,288,268 triangles and downloads approximately 33 MB of compressed geometry. Full credits, source links, and adaptation details are in [ATTRIBUTION.md](public/ATTRIBUTION.md).
+### Первый раз (через сайт)
 
-This is an educational explorer, not a diagnostic or surgical tool.
+1. Запушить ветки на GitHub: `git push -u origin main game`.
+2. Зайти на https://vercel.com, войти через GitHub. Тариф Hobby бесплатный для некоммерческих проектов.
+3. **Add New → Project → Import Git Repository** → выбрать `galogen88/body-detective`. Если репозитория нет в списке, нажать **Adjust GitHub App Permissions** и дать Vercel доступ к нему.
+4. На экране настройки проекта:
+   - **Framework Preset** — Vite (подставится из `vercel.json`);
+   - **Root Directory** — оставить корень `./`;
+   - Build / Output / Install — не трогать, их задаёт `vercel.json`.
+5. **Deploy**. Через пару минут появится ссылка вида `https://body-detective-<...>.vercel.app`.
+6. В **Settings → Build and Deployment → Node.js Version** выбрать 22.x или новее, если там стоит более старая версия.
 
-## How it works
+### Дальше — автоматически
 
-Geometry is merged into batches. Per-structure GPU textures control translation, visibility, and selection, while component geometry supports accurate picking. Exploded layouts pack only the visible pieces. Rendering updates when the scene changes; orbit controls remain responsive without thousands of separate draw calls.
+- Push в `main` — продакшн-деплой на основную ссылку.
+- Push в `game` или любую другую ветку — preview-деплой с отдельной ссылкой. Ссылка появляется в Vercel и в pull request на GitHub.
+- Ветку для продакшна можно поменять в **Settings → Environments → Production → Branch Tracking**. Например, на `game`, пока демо не слито в `main`.
 
-The optional WebMCP tools expose anatomy search and inspection in compatible browsers. The visible interface works without them.
+### Через командную строку (без сайта)
 
-## Rebuilding geometry
+```sh
+npx vercel login
+npx vercel link        # один раз: привязать папку к проекту Vercel
+npx vercel             # preview-деплой текущего состояния папки
+npx vercel --prod      # продакшн-деплой
+```
 
-The repository includes browser-ready geometry. Rebuilding it is optional: obtain the official BodyParts3D OBJ archive and English metadata tables, prepare the joined concepts and display-system mappings, run `scripts/convert-anatomy.py`, then `node scripts/optimize-anatomy.mjs` and `node scripts/compress-models.mjs`. Simplification uses a 0.2% relative error limit per structure.
+CLI собирает проект на серверах Vercel по тем же правилам из `vercel.json`. Папка `.vercel/` с привязкой уже в `.gitignore`.
 
-## Deploy
+### После деплоя проверить
 
-Import this repository into Vercel as a Vite project. The included `vercel.json` configures `npm ci`, `npm run build`, and the `dist` output directory. It can also be served by a static host.
+- Ссылка открывается на ноутбуке и на телефоне, модель загружается.
+- В консоли браузера нет ошибок загрузки файлов из `/models/`.
+- Доступна атрибуция BodyParts3D (кнопка «Source & credits» / экран «Титры»).
 
-## License
+### Если что-то пошло не так
 
-Original application code is released under the [MIT License](LICENSE). **The anatomy data has its own CC BY 4.0 license**; preserve the attribution when redistributing it. Third-party dependencies retain their respective licenses.
+- **Сборка падает на установке** — проверить версию Node.js в настройках проекта (нужна 22.13+), и что `package-lock.json` закоммичен.
+- **Белый экран, 404 на `/models/...`** — убедиться, что Output Directory — `dist`, а не переопределён в настройках проекта.
+- **Откатить** — в **Deployments** выбрать предыдущий рабочий деплой → **⋯ → Promote to Production** (или **Instant Rollback**).
 
-Issues and pull requests are welcome. Please include reproduction steps and browser/device details for interaction problems.
+## Другие хостинги
+
+Подойдёт любой статический хостинг: команда сборки `npm run build`, папка `dist`, Node.js 22.13+.
+
+- **Netlify / Cloudflare Pages** — импорт репозитория с этими настройками.
+- **GitHub Pages** — сайт открывается по пути `/body-detective/`, поэтому сначала нужно добавить `base: '/body-detective/'` в `vite.config.ts`. Сейчас это не настроено.
+
+## Лицензии и атрибуция
+
+- Код атласа — MIT ([LICENSE](LICENSE)), автор — ashemag.
+- Анатомические данные — **BodyParts3D 4.0, CC BY 4.0**. Атрибуцию в [public/ATTRIBUTION.md](public/ATTRIBUTION.md) и ссылку на неё в интерфейсе сохраняем при любых изменениях и в каждом деплое.
+
+Подробности об устройстве атласа (как склеены меши, пересборка геометрии, WebMCP) — в [README оригинала](https://github.com/ashemag/human-atlas#readme).
